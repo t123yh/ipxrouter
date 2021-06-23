@@ -1,0 +1,36 @@
+/*
+Author: Jelle Geerts
+
+Usage of the works is permitted provided that this instrument is
+retained with the works, so that any entity that uses the works is
+notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+*/
+
+#include "project_info.h"
+#include <winresrc.h>
+
+1 VERSIONINFO
+  FILEVERSION       APP_FILEVERSION
+  PRODUCTVERSION    APP_FILEVERSION
+  FILEFLAGSMASK     0
+  FILEFLAGS         0
+  FILEOS            VOS_NT_WINDOWS32
+  FILETYPE          VFT_DLL
+  FILESUBTYPE       0
+{
+    BLOCK "StringFileInfo" {
+        BLOCK "040904B0" {
+            VALUE "FileDescription",  APP_NAME " (" APP_HOMEPAGE ")"
+            VALUE "FileVersion",      APP_FILEVERSION_STR
+            VALUE "LegalCopyright",   "Author: " AUTHOR
+            VALUE "OriginalFilename", "wsock32.dll"
+            VALUE "ProductName",      APP_NAME
+            VALUE "ProductVersion",   APP_FILEVERSION_STR
+        }
+    }
+    BLOCK "VarFileInfo" {
+        VALUE "Translation", 0x409, 0x4B0
+    }
+}
