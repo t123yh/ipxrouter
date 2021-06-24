@@ -2,7 +2,7 @@ name: Server
 
 on:
   push:
-    paths: ['server/**']
+    paths: ['server/**', '.github/workflows/server.yml']
 
 jobs:
   build:
@@ -19,10 +19,10 @@ jobs:
 
     - name: Build
       working-directory: server
-      run: go build -v main.go -o server
+      run: go build -o server -v main.go
       
     - uses: actions/upload-artifact@v2
       with:
-        name: executable
+        name: server-${{ matrix.os }}
         path: server/server*
 

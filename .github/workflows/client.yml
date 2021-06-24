@@ -1,8 +1,8 @@
-name: MSBuild
+name: Client
 
 on:
   push:
-    paths: ['client/**']
+    paths: ['client/**', '.github/workflows/client.yml']
 
 env:
   # Path to the solution file relative to the root of the project.
