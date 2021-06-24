@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"container/list"
 	"encoding/binary"
+	"flag"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -42,18 +44,18 @@ func expired(t *Client) bool {
 }
 
 func displayAddress(a NodeAddress) string {
-	return fmt.Sprintf("%X.%X.%X.%X.%X.%X", a[0], a[1], a[2], a[3], a[4], a[5])
+	return fmt.Sprintf("%02X.%02X.%02X.%02X.%02X.%02X", a[0], a[1], a[2], a[3], a[4], a[5])
 }
 
 func handlePacket(conn *net.UDPConn, p []byte, a *net.UDPAddr) {
 	if len(p) < headerSize {
-		log.Printf("Packet from %+v is too small(%d)\n", a, len(p))
+		log.Warningf("Packet from %+v is too small(%d)\n", a, len(p))
 		return
 	}
 
 	header := extractHeader(p)
 
-	log.Printf("Received packet from UDP %+v, dst %s:%d, src %s:%d\n", a,
+	log.Debugf("Received packet from UDP %+v, dst %s:%d, src %s:%d\n", a,
 		displayAddress(header.DstNode), header.DstSocket,
 		displayAddress(header.SrcNode), header.SrcSocket)
 
@@ -61,6 +63,9 @@ func handlePacket(conn *net.UDPConn, p []byte, a *net.UDPAddr) {
 		socketMap[header.SrcSocket] = make(map[NodeAddress]*Client)
 	}
 
+	if _, ok := socketMap[header.SrcSocket][header.SrcNode]; !ok {
+		log.Infof("New client %s:%d from %+v", displayAddress(header.SrcNode), header.SrcSocket, a)
+	}
 	socketMap[header.SrcSocket][header.SrcNode] = &Client{a, time.Now()}
 
 	if v, ok := socketMap[header.DstSocket]; ok {
@@ -75,39 +80,63 @@ func handlePacket(conn *net.UDPConn, p []byte, a *net.UDPAddr) {
 				delete(v, e.Value.(NodeAddress))
 			}
 
-			for _, vv := range v {
-							fmt.Printf("Sending to %+v (last seen %ds ago) \n", vv.Endpoint, int(time.Now().Sub(vv.LastSeen).Seconds()))
-				conn.WriteTo(p, vv.Endpoint)
+			for node, vv := range v {
+				log.Debugf("Sending broadcast to %+v (last seen %ds ago)", vv.Endpoint, int(time.Now().Sub(vv.LastSeen).Seconds()))
+				if node != header.SrcNode {
+					_, err := conn.WriteTo(p, vv.Endpoint)
+					if err != nil {
+						log.Warningf("Failed to send broadcast packet to %+v: %s", vv.Endpoint, err.Error())
+					}
+				}
 			}
 		} else {
 			if vv, ok := v[header.DstNode]; ok {
-				vv.LastSeen = time.Now()
-				fmt.Printf("Sending to %+v\n", vv.Endpoint)
-				conn.WriteTo(p, vv.Endpoint)
+				if expired(vv) {
+					delete(v, header.DstNode)
+				} else {
+					vv.LastSeen = time.Now()
+					log.Debugf("Sending unicast to %+v (last seen %ds ago)", vv.Endpoint, int(time.Now().Sub(vv.LastSeen).Seconds()))
+					_, err := conn.WriteTo(p, vv.Endpoint)
+					if err != nil {
+						log.Warningf("Failed to send unicast packet to %+v: %s", vv.Endpoint, err.Error())
+					}
+				}
 			}
 		}
 	}
 }
 
 func main() {
+	verbose := flag.Bool("v", false, "Verbose logging")
+	port := flag.Int("p", 8899, "Port to listen")
+	flag.Parse()
+
+	if *verbose {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
+	}
+
 	broadcastAddress = [6]byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 	socketMap = make(map[uint16]map[NodeAddress]*Client)
 
-	udpAddr, err := net.ResolveUDPAddr("udp", "0.0.0.0:8899")
-	if err != nil {
-		panic(err)
-	}
+	udpStr := ":" + strconv.Itoa(*port)
+	udpAddr, _ := net.ResolveUDPAddr("udp", udpStr)
 	conn, err := net.ListenUDP("udp", udpAddr)
+	if err != nil {
+		log.Errorf("Unable to listen on udp %s", udpStr)
+		return
+	}
+	log.Infof("Listening on %s", udpAddr)
 
 	for {
 		data := make([]byte, 1500)
 		n, a, err := conn.ReadFromUDP(data)
 		if err != nil {
-			fmt.Println("failed read udp msg, error: " + err.Error())
+			log.Warningf("failed read udp msg, error: %s", err.Error())
 			continue
 		}
 
 		handlePacket(conn, data[:n], a)
 	}
 }
-
