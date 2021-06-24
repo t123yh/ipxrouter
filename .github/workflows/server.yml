@@ -1,0 +1,28 @@
+name: Server
+
+on:
+  push:
+    paths: ['server/**']
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        go-version: [1.16.x]
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+
+    - name: Build
+      working-directory: server
+      run: go build -v main.go -o server
+      
+    - uses: actions/upload-artifact@v2
+      with:
+        name: executable
+        path: server/server*
+
