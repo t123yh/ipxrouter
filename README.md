@@ -6,6 +6,8 @@ IPXRouter is implemented in two parts: client and server.
 
 The client part is a `wsock32.dll` that handles IPX emulation, converts IPX to UDP and communicates with server. The server part is a golang application that listens on a UDP port and forwards packet among clients. 
 
+The client part is modified modified from [ipxemu](http://ipxemu.sourceforge.net/).
+
 ## Usage
 Download the client and the server from GitHub Actions build artifacts. 
 
